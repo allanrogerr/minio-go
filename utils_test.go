@@ -544,3 +544,34 @@ func TestExtractObjMetadata(t *testing.T) {
 		})
 	}
 }
+
+// Tests that ToObjectInfo preserves the raw response headers unfiltered,
+// including headers such as Content-Range that are not parsed into
+// dedicated ObjectInfo fields, while Metadata stays filtered.
+func TestToObjectInfoHeaders(t *testing.T) {
+	header := http.Header{}
+	header.Set("ETag", `"d41d8cd98f00b204e9800998ecf8427e"`)
+	header.Set("Content-Length", "101")
+	header.Set("Content-Type", "application/octet-stream")
+	header.Set("Last-Modified", "Sun, 02 Jan 2000 20:34:56 GMT")
+	header.Set("Content-Range", "bytes 0-100/1000")
+	header.Set("X-Amz-Request-Id", "test-request-id")
+
+	objInfo, err := ToObjectInfo("test-bucket", "test-object", header)
+	if err != nil {
+		t.Fatalf("ToObjectInfo() unexpected error: %v", err)
+	}
+	if got := objInfo.Headers.Get("Content-Range"); got != "bytes 0-100/1000" {
+		t.Errorf("Headers.Get(Content-Range) = %q, want %q", got, "bytes 0-100/1000")
+	}
+	if got := objInfo.Headers.Get("X-Amz-Request-Id"); got != "test-request-id" {
+		t.Errorf("Headers.Get(X-Amz-Request-Id) = %q, want %q", got, "test-request-id")
+	}
+	if got := objInfo.Metadata.Get("Content-Range"); got != "" {
+		t.Errorf("Metadata.Get(Content-Range) = %q, want it filtered out", got)
+	}
+	header.Set("Content-Range", "bytes 5-6/7")
+	if got := objInfo.Headers.Get("Content-Range"); got != "bytes 0-100/1000" {
+		t.Errorf("Headers aliases the source header map; got %q after source mutation", got)
+	}
+}

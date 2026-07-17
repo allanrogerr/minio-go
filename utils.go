@@ -250,7 +250,7 @@ func extractObjMetadata(header http.Header) http.Header {
 }
 
 const (
-	// RFC 7231#section-7.1.1.1 timetamp format. e.g Tue, 29 Apr 2014 18:30:38 GMT
+	// RFC 7231#section-7.1.1.1 timestamp format. e.g Tue, 29 Apr 2014 18:30:38 GMT
 	rfc822TimeFormat                           = "Mon, 2 Jan 2006 15:04:05 GMT"
 	rfc822TimeFormatSingleDigitDay             = "Mon, _2 Jan 2006 15:04:05 GMT"
 	rfc822TimeFormatSingleDigitDayTwoDigitYear = "Mon, _2 Jan 06 15:04:05 GMT"
@@ -430,6 +430,11 @@ func ToObjectInfo(bucketName, objectName string, h http.Header) (ObjectInfo, err
 		ChecksumXXHash128: h.Get(ChecksumXXHash128.Key()),
 		ChecksumAlgorithm: h.Get(amzChecksumAlgo),
 		ChecksumMode:      h.Get(ChecksumFullObjectMode.Key()),
+
+		// Preserve the raw response headers unfiltered, for callers that
+		// need headers not parsed into the fields above (e.g. Content-Range).
+		// Cloned so the returned ObjectInfo does not alias the response map.
+		Headers: h.Clone(),
 	}, nil
 }
 

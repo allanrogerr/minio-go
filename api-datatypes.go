@@ -245,6 +245,13 @@ type ObjectInfo struct {
 		M int // Parity blocks
 	} `xml:"Internal"`
 
+	// Raw HTTP response headers as received from the server, unfiltered.
+	// Includes headers such as Content-Range that are not parsed into
+	// the fields above. Populated when the ObjectInfo is built from an
+	// object HEAD/GET response (StatObject, GetObject); nil otherwise,
+	// e.g. for list entries.
+	Headers http.Header `json:"-" xml:"-"`
+
 	// Error
 	Err error `json:"-"`
 }

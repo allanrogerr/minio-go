@@ -904,12 +904,13 @@ Fetch metadata of an object.
 
 **minio.ObjectInfo**
 
-| Field                  | Type        | Description                        |
-| :--------------------- | :---------- | :--------------------------------- |
-| `objInfo.LastModified` | _time.Time_ | Time when object was last modified |
-| `objInfo.ETag`         | _string_    | MD5 checksum of the object         |
-| `objInfo.ContentType`  | _string_    | Content type of the object         |
-| `objInfo.Size`         | _int64_     | Size of the object                 |
+| Field                  | Type          | Description                                   |
+| :--------------------- | :------------ | :-------------------------------------------- |
+| `objInfo.LastModified` | _time.Time_   | Time when object was last modified            |
+| `objInfo.ETag`         | _string_      | MD5 checksum of the object                    |
+| `objInfo.ContentType`  | _string_      | Content type of the object                    |
+| `objInfo.Size`         | _int64_       | Size of the object                            |
+| `objInfo.Headers`      | _http.Header_ | Raw unfiltered headers of the stat response   |
 
 **Example**
 
@@ -2439,7 +2440,7 @@ Cancels in progress replication resync (MinIO AiStor Only API)
 | `bucketName` | _string_          | Name of the bucket                                 |
 | `tgtArn`     | _string_          | Target Amazon Resource Name                        |
 
-**Return Values** |Param |Type |Description | |:---|:--|:---| |`id`|_string_| Recieved upon successful cancellation of replication resync| |`err`| _error_| Standard Error|
+**Return Values** |Param |Type |Description | |:---|:--|:---| |`id`|_string_| Received upon successful cancellation of replication resync| |`err`| _error_| Standard Error|
 
 **Example**
 
