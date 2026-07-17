@@ -419,3 +419,67 @@ func TestIMDSv1Blocked(t *testing.T) {
 		t.Errorf("Unexpected IMDSv2 failure %s", err)
 	}
 }
+
+func TestIAMCustomExpiryWindow(t *testing.T) {
+	// Credentials expire at 01:51:37; with a 1h window the provider must
+	// report expiry from 00:51:37 onwards.
+	server := initIMDSv2Server("2014-12-16T01:51:37Z", false)
+	defer server.Close()
+
+	p := &IAM{
+		Endpoint:     server.URL,
+		ExpiryWindow: time.Hour,
+	}
+
+	_, err := p.RetrieveWithCredContext(defaultCredContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p.CurrentTime = func() time.Time {
+		return time.Date(2014, 12, 16, 0, 51, 0, 0, time.UTC)
+	}
+	if p.IsExpired() {
+		t.Error("Expected creds to not be expired just outside the 1h window.")
+	}
+
+	p.CurrentTime = func() time.Time {
+		return time.Date(2014, 12, 16, 0, 52, 0, 0, time.UTC)
+	}
+	if !p.IsExpired() {
+		t.Error("Expected creds to be expired inside the 1h window.")
+	}
+}
+
+func TestIAMZeroExpiryWindowKeepsDefault(t *testing.T) {
+	// With ExpiryWindow unset the 80% rule applies: retrieved 4h before
+	// the 01:51:37 expiry, creds must refresh from 01:03:37 onwards.
+	server := initIMDSv2Server("2014-12-16T01:51:37Z", false)
+	defer server.Close()
+
+	p := &IAM{
+		Endpoint: server.URL,
+	}
+	p.CurrentTime = func() time.Time {
+		return time.Date(2014, 12, 15, 21, 51, 37, 0, time.UTC)
+	}
+
+	_, err := p.RetrieveWithCredContext(defaultCredContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p.CurrentTime = func() time.Time {
+		return time.Date(2014, 12, 16, 1, 0, 0, 0, time.UTC)
+	}
+	if p.IsExpired() {
+		t.Error("Expected creds to not be expired before 80% of their lifetime elapsed.")
+	}
+
+	p.CurrentTime = func() time.Time {
+		return time.Date(2014, 12, 16, 1, 10, 0, 0, time.UTC)
+	}
+	if !p.IsExpired() {
+		t.Error("Expected creds to be expired after 80% of their lifetime elapsed.")
+	}
+}

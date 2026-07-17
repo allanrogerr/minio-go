@@ -58,6 +58,12 @@ type IAM struct {
 	// Region configurable custom region for STS
 	Region string
 
+	// ExpiryWindow, when greater than 0, makes the credentials refresh
+	// that long before their actual expiry. When 0 or negative, the
+	// DefaultExpiryWindow 80% rule applies. A window equal to or larger
+	// than the token lifetime causes a refresh on every request.
+	ExpiryWindow time.Duration
+
 	// Support for container authorization token https://docs.aws.amazon.com/sdkref/latest/guide/feature-container-credentials.html
 	Container struct {
 		AuthorizationToken     string
@@ -92,6 +98,15 @@ func NewIAM(endpoint string) *Credentials {
 	return New(&IAM{
 		Endpoint: endpoint,
 	})
+}
+
+// expiryWindow returns the user-configured expiry window when positive,
+// falling back to the DefaultExpiryWindow sentinel otherwise.
+func (m *IAM) expiryWindow() time.Duration {
+	if m.ExpiryWindow > 0 {
+		return m.ExpiryWindow
+	}
+	return DefaultExpiryWindow
 }
 
 // RetrieveWithCredContext is like Retrieve with Cred Context
@@ -184,7 +199,7 @@ func (m *IAM) RetrieveWithCredContext(cc *CredContext) (Value, error) {
 
 		stsWebIdentityCreds, err := creds.RetrieveWithCredContext(cc)
 		if err == nil {
-			m.SetExpiration(creds.Expiration(), DefaultExpiryWindow)
+			m.SetExpiration(creds.Expiration(), m.expiryWindow())
 		}
 		return stsWebIdentityCreds, err
 
@@ -220,8 +235,7 @@ func (m *IAM) RetrieveWithCredContext(cc *CredContext) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	// Expiry window is set to 10secs.
-	m.SetExpiration(roleCreds.Expiration, DefaultExpiryWindow)
+	m.SetExpiration(roleCreds.Expiration, m.expiryWindow())
 
 	return Value{
 		AccessKeyID:     roleCreds.AccessKeyID,
