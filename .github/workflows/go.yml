@@ -45,22 +45,21 @@ jobs:
           sudo apt install devscripts -y
           mkdir -p /tmp/certs-dir
           cp testcerts/* /tmp/certs-dir
-          # Test against an AIStor :edge image so recent AIStor APIs
+          # Test against the AIStor :edge image so the latest AIStor APIs
           # (object annotations) and checksum algorithms (xxhash3/xxhash128,
           # sha512, md5) are available to the functional tests.
-          # Pinned to the last-known-good :edge build (DEVELOPMENT.2026-07-22T23-55-45Z,
-          # server commit 40cd9374): :edge builds from DEVELOPMENT.2026-07-23T17-46-49Z
-          # (server commit b5ee91d7) through at least DEVELOPMENT.2026-07-24T01-18-23Z
-          # (server commit 7dac4a40) reject PutObject under the FREE-plan license
-          # below with "This feature is not available for Free tier licenses", which
-          # fails core_test.go on every PR. Unpin back to :edge once the license
-          # regression is resolved (tracking: https://github.com/allanrogerr/minio-go/issues/1).
-          AISTOR_IMAGE="registry.k5.min.dev/aistor/minio@sha256:5d9e9007305eb22c096f278f2e150c85be8c919e5f0e37b827835a3f933ea43f"
-          docker pull "${AISTOR_IMAGE}"
+          docker pull registry.k5.min.dev/aistor/minio:edge
           # Free-tier AIStor license so the server allows writes (without a
           # license the server boots read-only). This is a public FREE-plan
           # license, not a secret.
           MINIO_LICENSE="eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJhaWQiOjAsImNhcCI6MCwiaWF0IjoxLjc4MDAzMTY0NTUyMzA5ODM1OGU5LCJpc3MiOiJzdWJuZXRAbWluLmlvIiwibGlkIjoiYjNhYTliNGQtOTUxYy00MjIzLTgyMmEtZGY2NjE5MDNjOWFkIiwibm9kZXMiOjEsIm9yZyI6IiIsInBsYW4iOiJGUkVFIiwicHJvZHVjdCI6IkFJU3RvciIsInN1YiI6ImRldkBtaW5pby5pbyIsInRyaWFsIjpmYWxzZX0.Aq0kaFgd5SMHYEK7fIYzPsU4xlS119sj-BSyftCDpmtHIbW6KNFXGA9nbKPc17ZXKgcQgUoaPncsq30EOy7PyH-lp3LPpy3rPoD7ptJHI2v0jqpvlnP0cVGK0Yuw3vib"
+          # AIStor :edge builds since DEVELOPMENT.2026-07-23T17-46-49Z (server commit
+          # b5ee91d7) evaluate the free-tier encryption gate AFTER the server injects
+          # its own auto-encryption header (auto-encryption defaults to on whenever
+          # KMS is configured), so every plain write is rejected with "This feature
+          # is not available for Free tier licenses". Disabling auto-encryption keeps
+          # plain writes plain; remove this once the gate reads the client's original
+          # headers (tracking: https://github.com/allanrogerr/minio-go/issues/1).
           docker rm -f aistor >/dev/null 2>&1 || true
           docker run -d --name aistor \
             -p 9000:9000 \
@@ -69,8 +68,9 @@ jobs:
             -e MINIO_ROOT_PASSWORD=minioadmin \
             -e MINIO_CI_CD=true \
             -e MINIO_KMS_SECRET_KEY="${MINIO_KMS_SECRET_KEY}" \
+            -e MINIO_KMS_AUTO_ENCRYPTION=off \
             -e MINIO_LICENSE="${MINIO_LICENSE}" \
-            "${AISTOR_IMAGE}" \
+            registry.k5.min.dev/aistor/minio:edge \
             server --quiet --certs-dir /certs /data/{1...4}
           for _ in $(seq 1 60); do
             if curl -sf --cacert /tmp/certs-dir/public.crt https://localhost:9000/minio/health/ready >/dev/null; then
