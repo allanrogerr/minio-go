@@ -59,7 +59,7 @@ jobs:
           # KMS is configured), so every plain write is rejected with "This feature
           # is not available for Free tier licenses". Disabling auto-encryption keeps
           # plain writes plain; remove this once the gate reads the client's original
-          # headers (tracking: https://github.com/allanrogerr/minio-go/issues/1).
+          # headers (tracking: https://github.com/minio/minio-go/issues/2270).
           docker rm -f aistor >/dev/null 2>&1 || true
           docker run -d --name aistor \
             -p 9000:9000 \
